@@ -31,12 +31,12 @@ There are five classes in an inheritance diagram, four of which represent
 synchronous servers of four types:
 
         +------------+
-        | BaseServer |
+        | BaseServer |  ## sync servers 
         +------------+
               |
               v
         +-----------+        +------------------+
-        | TCPServer |------->| UnixStreamServer |
+        | TCPServer |------->| UnixStreamServer |  ## IP vs. Unix system 
         +-----------+        +------------------+
               |
               v
@@ -50,25 +50,28 @@ stream server is the address family, which is simply repeated in both
 unix server classes.
 
 Forking and threading versions of each type of server can be created
-using the ForkingServer and ThreadingServer mix-in classes.  For
+using the ForkingServer and ThreadingServer mix-in classes.  For  ## uses of mix-in classes
 instance, a threading UDP server class is created as follows:
 
         class ThreadingUDPServer(ThreadingMixIn, UDPServer): pass
 
 The Mix-in class must come first, since it overrides a method defined
 in UDPServer!
+## multi-inheritance, right-to-left resolving direction 
 
+## Service 
 To implement a service, you must derive a class from
 BaseRequestHandler and redefine its handle() method.  You can then run
 various versions of the service by combining one of the server classes
 with your request handler class.
 
 The request handler class must be different for datagram or stream
-services.  This can be hidden by using the mix-in request handler
-classes StreamRequestHandler or DatagramRequestHandler.
+services.  This can be hidden by using the mix-in request handler 
+classes StreamRequestHandler or DatagramRequestHandler.  ## uses of mix-in classes
 
 Of course, you still have to use your head!
 
+## Process vs. Threads 
 For instance, it makes no sense to use a forking server if the service
 contains state in memory that can be modified by requests (since the
 modifications in the child process would never reach the initial state
@@ -77,19 +80,22 @@ you can use a threading server, but you will probably have to use
 locks to avoid two requests that come in nearly simultaneous to apply
 conflicting changes to the server state.
 
+## File system access, sync causes "deaf"
 On the other hand, if you are building e.g. an HTTP server, where all
 data is stored externally (e.g. in the file system), a synchronous
 class will essentially render the service "deaf" while one request is
 being handled -- which may be for a very long time if a client is slow
-to reqd all the data it has requested.  Here a threading or forking
+to read all the data it has requested.  Here a threading or forking
 server is appropriate.
 
+## Sync server with explicit fork 
 In some cases, it may be appropriate to process part of a request
 synchronously, but to finish processing in a forked child depending on
 the request data.  This can be implemented by using a synchronous
 server and doing an explicit fork in the request handler class
 handle() method.
 
+## Explicit table, for streaming services 
 Another approach to handling multiple simultaneous requests in an
 environment that supports neither threads nor fork (or where these are
 too expensive or inappropriate for the service) is to maintain an
@@ -132,6 +138,9 @@ import socket
 import sys
 import os
 
+## __all__ is normally seen in __init__.py 
+## __all__ is a list of strings defining what symbols in a module will be exported when from <module> import * is used on the module.
+## __all__ is a list of public objects of that module -- it overrides the default of hiding everything that begins with an underscore
 __all__ = ["TCPServer","UDPServer","ForkingUDPServer","ForkingTCPServer",
            "ThreadingUDPServer","ThreadingTCPServer","BaseRequestHandler",
            "StreamRequestHandler","DatagramRequestHandler",
@@ -184,21 +193,23 @@ class BaseServer:
     def __init__(self, server_address, RequestHandlerClass):
         """Constructor.  May be extended, do not override."""
         self.server_address = server_address
-        self.RequestHandlerClass = RequestHandlerClass
+        self.RequestHandlerClass = RequestHandlerClass  ## Passing a class
 
     def server_activate(self):
-        """Called by constructor to activate the server.
+        """Called by constructor to activate the server. 
 
         May be overridden.
 
         """
+        ## But it is not called by constructor in base class. 
         pass
 
     def serve_forever(self):
         """Handle one request at a time until doomsday."""
-        while 1:
+        while 1:  ## forever loop, but while True preferred as in newer version 
             self.handle_request()
 
+    ## 1) Handling, 2) Getting, 3) Processing, 4) Finishing
     # The distinction between handling, getting, processing and
     # finishing a request is fairly arbitrary.  Remember:
     #
@@ -210,6 +221,8 @@ class BaseServer:
     # - finish_request() instantiates the request handler class;
     #   this constructor will handle the request all by itself
 
+    ## How should should write a documentation middle in a class
+
     def handle_request(self):
         """Handle one request, possibly blocking."""
         try:
@@ -218,12 +231,12 @@ class BaseServer:
             return
         if self.verify_request(request, client_address):
             try:
-                self.process_request(request, client_address)
+                self.process_request(request, client_address)  ## when to close? called inside 
             except:
                 self.handle_error(request, client_address)
                 self.close_request(request)
 
-    def verify_request(self, request, client_address):
+    def verify_request(self, request, client_address):  ## authentication etc. 
         """Verify the request.  May be overridden.
 
         Return true if we should proceed with this request.
@@ -250,7 +263,7 @@ class BaseServer:
 
     def finish_request(self, request, client_address):
         """Finish one request by instantiating RequestHandlerClass."""
-        self.RequestHandlerClass(request, client_address, self)
+        self.RequestHandlerClass(request, client_address, self)  ## Server --> Handler 
 
     def close_request(self, request):
         """Called to clean up an individual request."""
@@ -262,7 +275,7 @@ class BaseServer:
         The default is to print a traceback and continue.
 
         """
-        print '-'*40
+        print '-'*40  ## How you should do the formatting. 
         print 'Exception happened during processing of request from',
         print client_address
         import traceback
@@ -274,7 +287,7 @@ class TCPServer(BaseServer):
 
     """Base class for various socket-based server classes.
 
-    Defaults to synchronous IP stream (i.e., TCP).
+    Defaults to synchronous IP stream (i.e., TCP).  ## originally, TCP is sync 
 
     Methods for the caller:
 
@@ -313,22 +326,24 @@ class TCPServer(BaseServer):
 
     """
 
-    address_family = socket.AF_INET
+    ## Class variable 
+    address_family = socket.AF_INET  ## AF_INET: address format is host and port number
+    ## AF_UNIX: AF_UNIX: address format is UNIX pathname
 
     socket_type = socket.SOCK_STREAM
 
     request_queue_size = 5
 
     allow_reuse_address = 0
-
+    
     def __init__(self, server_address, RequestHandlerClass):
         """Constructor.  May be extended, do not override."""
-        BaseServer.__init__(self, server_address, RequestHandlerClass)
+        BaseServer.__init__(self, server_address, RequestHandlerClass)  ## explicitly ref base calss 
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
-        self.server_bind()
-        self.server_activate()
-
+        self.server_bind()  ## no params, using object state   ## bind socket to server 
+        self.server_activate()  # socket listens 
+        
     def server_bind(self):
         """Called by constructor to bind the socket.
 
@@ -359,7 +374,7 @@ class TCPServer(BaseServer):
         """Return socket file number.
 
         Interface required by select().
-
+        
         """
         return self.socket.fileno()
 
