@@ -190,7 +190,7 @@ class BaseServer:
 
     """
 
-    def __init__(self, server_address, RequestHandlerClass):
+    def __init__(self, server_address, RequestHandlerClass): 
         """Constructor.  May be extended, do not override."""
         self.server_address = server_address
         self.RequestHandlerClass = RequestHandlerClass  ## Passing a class
@@ -249,8 +249,12 @@ class BaseServer:
 
         Overridden by ForkingMixIn and ThreadingMixIn.
 
+        ## `
+        ThreadingMixIn add a new method process_request_thread with exception handling
+        Then it overrides this method within initiating of a new thread 
+
         """
-        self.finish_request(request, client_address)
+        threads.finish_request(request, client_address)
         self.close_request(request)
 
     def server_close(self):
@@ -376,7 +380,7 @@ class TCPServer(BaseServer):
         Interface required by select().
         
         """
-        return self.socket.fileno()
+        return self.socket.fileno()  ## Delegation, rather than directly use object attributes 
 
     def get_request(self):
         """Get the request and client address from the socket.
@@ -384,16 +388,25 @@ class TCPServer(BaseServer):
         May be overridden.
 
         """
-        return self.socket.accept()
+        return self.socket.accept()  ## Delegation, rather than directly use object attributes 
 
     def close_request(self, request):
         """Called to clean up an individual request."""
-        request.close()
+        request.close()  ## delegation, rather than directly use parameters, since different behaviors 
 
 
 class UDPServer(TCPServer):
 
-    """UDP server class."""
+    """UDP server class.
+    
+    UDP uses a simple connectionless transmission model with a minimum of protocol mechanism. It has no
+    handshaking dialogues, and thus exposes any unreliability of the underlying network protocol to the user's
+    program. There is no guarantee of delivery, ordering, or duplicate protection.
+
+    Applications use datagram sockets to establish host-to-host communications.
+
+    Handling, Getting Verifying, Processing, Finishing methods are in BaseServer 
+    """
 
     allow_reuse_address = 0
 
@@ -402,11 +415,12 @@ class UDPServer(TCPServer):
     max_packet_size = 8192
 
     def get_request(self):
-        data, client_addr = self.socket.recvfrom(self.max_packet_size)
+        ## UDPServer relying on underlying socket 
+        data, client_addr = self.socket.recvfrom(self.max_packet_size)  ## Request from client. 
         return (data, self.socket), client_addr
 
     def server_activate(self):
-        # No need to call listen() for UDP.
+        # No need to call listen() for UDP.  ## Server no listening 
         pass
 
     def close_request(self, request):
@@ -415,16 +429,18 @@ class UDPServer(TCPServer):
 
 class ForkingMixIn:
 
-    """Mix-in class to handle each request in a new process."""
+    """Mix-in class to handle each request in a new process.
+    Fork to another process with new pid 
+    """
 
-    active_children = None
+    active_children = None  ## list 
     max_children = 40
 
     def collect_children(self):
         """Internal routine to wait for died children."""
         while self.active_children:
             if len(self.active_children) < self.max_children:
-                options = os.WNOHANG
+                options = os.WNOHANG  ## This flag specifies that waitpid should return immediately instead of waiting, if there is no child process ready to be noticed. (No Hang)
             else:
                 # If the maximum number of children are already
                 # running, block while waiting for a child to exit
@@ -445,9 +461,9 @@ class ForkingMixIn:
             if self.active_children is None:
                 self.active_children = []
             self.active_children.append(pid)
-            self.close_request(request)
+            self.close_request(request)  ## In mix-in, this method relies on child class 
             return
-        else:
+        else:  ## fail elegantly 
             # Child process.
             # This must never return, hence os._exit()!
             try:
@@ -468,6 +484,7 @@ class ThreadingMixIn:
 
         In addition, exception handling is done here.
 
+        Exception handling is added by addining additional method 
         """
         try:
             self.finish_request(request, client_address)
@@ -493,7 +510,7 @@ class ThreadingTCPServer(ThreadingMixIn, TCPServer): pass
 if hasattr(socket, 'AF_UNIX'):
 
     class UnixStreamServer(TCPServer):
-        address_family = socket.AF_UNIX
+        address_family = socket.AF_UNIX  ## override the address_family 
 
     class UnixDatagramServer(UDPServer):
         address_family = socket.AF_UNIX
@@ -504,13 +521,15 @@ if hasattr(socket, 'AF_UNIX'):
 
 class BaseRequestHandler:
 
-    """Base class for request handler classes.
+    """Base class for request handler classes.  ## so that you can have HttpResponse 
 
     This class is instantiated for each request to be handled.  The
     constructor sets the instance variables request, client_address
     and server, and then calls the handle() method.  To implement a
     specific service, all you need to do is to derive a class which
     defines a handle() method.
+
+    ## Server has a reference to Hanlder class. Handler has an attribute of server 
 
     The handle() method can find the request as self.request, the
     client address as self.client_address, and the server (in case it
@@ -531,7 +550,7 @@ class BaseRequestHandler:
         finally:
             sys.exc_traceback = None    # Help garbage collection
 
-    def setup(self):
+    def setup(self):  ## specify what to be overriden. 
         pass
 
     def handle(self):
@@ -554,20 +573,23 @@ class StreamRequestHandler(BaseRequestHandler):
     """Define self.rfile and self.wfile for stream sockets."""
 
     # Default buffer sizes for rfile, wfile.
+    ## Big Read and Big Write - buffer the read, 
     # We default rfile to buffered because otherwise it could be
     # really slow for large data (a getc() call per byte); we make
     # wfile unbuffered because (a) often after a write() we want to
     # read and we need to flush the line; (b) big writes to unbuffered
     # files are typically optimized by stdio even when big reads
     # aren't.
+
     rbufsize = -1
     wbufsize = 0
 
     def setup(self):
         self.connection = self.request
-        self.rfile = self.connection.makefile('rb', self.rbufsize)
+        self.rfile = self.connection.makefile('rb', self.rbufsize)  ## b for binary 
         self.wfile = self.connection.makefile('wb', self.wbufsize)
 
+    ## Where to read and writh the files? Maybe need to override handle() 
     def finish(self):
         self.wfile.flush()
         self.wfile.close()
@@ -582,7 +604,7 @@ class DatagramRequestHandler(BaseRequestHandler):
     """Define self.rfile and self.wfile for datagram sockets."""
 
     def setup(self):
-        import StringIO
+        import StringIO  ## StringIO rather than file 
         self.packet, self.socket = self.request
         self.rfile = StringIO.StringIO(self.packet)
         self.wfile = StringIO.StringIO(self.packet)
