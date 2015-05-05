@@ -1,17 +1,21 @@
 # Wrapper module for _socket, providing some additional facilities
 # implemented in Python.
 
+## Reference: https://docs.python.org/dev/library/socket.html
+
 """\
 This module provides socket operations and some related functions.
 On Unix, it supports IP (Internet Protocol) and Unix domain sockets.
 On other systems, it only supports IP. Functions specific for a
 socket are available as methods of the socket object.
 
+## IP and Unix 
+
 Functions:
 
 socket() -- create a new socket object
 socketpair() -- create a pair of new socket objects [*]
-fromfd() -- create a socket object from an open file descriptor [*]
+fromfd() -- create a socket object from an open file descriptor [*]  ## File Descriptor 
 fromshare() -- create a socket object from data received from socket.share() [*]
 gethostname() -- return the current hostname
 gethostbyname() -- map a hostname to its IP number
@@ -20,8 +24,8 @@ getservbyname() -- map a service name and a protocol name to a port number
 getprotobyname() -- map a protocol name (e.g. 'tcp') to a number
 ntohs(), ntohl() -- convert 16, 32 bit int from network to host byte order
 htons(), htonl() -- convert 16, 32 bit int from host to network byte order
-inet_aton() -- convert IP addr string (123.45.67.89) to 32-bit packed format
-inet_ntoa() -- convert 32-bit packed format IP to string (123.45.67.89)
+inet_aton() -- convert IP addr string (123.45.67.89) to 32-bit packed format  ## address to network
+inet_ntoa() -- convert 32-bit packed format IP to string (123.45.67.89)  ## network to address 
 socket.getdefaulttimeout() -- get the default timeout value
 socket.setdefaulttimeout() -- set the default timeout value
 create_connection() -- connects to an address, with an optional timeout and
@@ -43,7 +47,7 @@ SOCK_STREAM, SOCK_DGRAM, SOCK_RAW -- socket types (second argument)
 Integer constants:
 
 Many other constants may be defined; these may be used in calls to
-the setsockopt() and getsockopt() methods.
+the setsockopt() and getsockopt() methods.  ## options 
 """
 
 import _socket
@@ -56,11 +60,11 @@ try:
     import errno
 except ImportError:
     errno = None
-EBADF = getattr(errno, 'EBADF', 9)
+EBADF = getattr(errno, 'EBADF', 9)  ## error bad files  
 EAGAIN = getattr(errno, 'EAGAIN', 11)
 EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', 11)
 
-__all__ = ["fromfd", "getfqdn", "create_connection",
+__all__ = ["fromfd", "getfqdn", "create_connection",  ## fqdn: fully qualified domain name 
         "AddressFamily", "SocketKind"]
 __all__.extend(os._get_exports_list(_socket))
 
@@ -98,7 +102,7 @@ _realsocket = socket
 
 # WSA error codes
 if sys.platform.lower().startswith("win"):
-    errorTab = {}
+    errorTab = {}  ## dict for better redability 
     errorTab[10004] = "The operation was interrupted."
     errorTab[10009] = "A bad file handle was passed."
     errorTab[10013] = "Permission denied."
@@ -120,7 +124,7 @@ if sys.platform.lower().startswith("win"):
 class _GiveupOnSendfile(Exception): pass
 
 
-class socket(_socket.socket):
+class socket(_socket.socket):  ## why the class name is in lowercase?
 
     """A subclass of _socket.socket adding the makefile() method."""
 
@@ -131,7 +135,9 @@ class socket(_socket.socket):
         # for the underlying _socket.socket they're just integers. The
         # constructor of _socket.socket converts the given argument to an
         # integer automatically.
-        _socket.socket.__init__(self, family, type, proto, fileno)
+
+        ## wrap around the underlying socket 
+        _socket.socket.__init__(self, family, type, proto, fileno)  ## underlying  _socket package
         self._io_refs = 0
         self._closed = False
 
@@ -159,13 +165,13 @@ class socket(_socket.socket):
             try:
                 laddr = self.getsockname()
                 if laddr:
-                    s += ", laddr=%s" % str(laddr)
+                    s += ", laddr=%s" % str(laddr)  ## load addr
             except error:
                 pass
             try:
                 raddr = self.getpeername()
                 if raddr:
-                    s += ", raddr=%s" % str(raddr)
+                    s += ", raddr=%s" % str(raddr)  ## read addr
             except error:
                 pass
         s += '>'
@@ -174,15 +180,15 @@ class socket(_socket.socket):
     def __getstate__(self):
         raise TypeError("Cannot serialize socket object")
 
-    def dup(self):
+    def dup(self):  ## os package also has dup()
         """dup() -> socket object
 
         Duplicate the socket. Return a new socket object connected to the same
         system resource. The new socket is non-inheritable.
         """
-        fd = dup(self.fileno())
-        sock = self.__class__(self.family, self.type, self.proto, fileno=fd)
-        sock.settimeout(self.gettimeout())
+        fd = dup(self.fileno())  ## wrapper 
+        sock = self.__class__(self.family, self.type, self.proto, fileno=fd)  ## self.__class__
+        sock.settimeout(self.gettimeout())  ## besides the constructor params, the timeout is the variable state 
         return sock
 
     def accept(self):
@@ -193,7 +199,9 @@ class socket(_socket.socket):
         For IP sockets, the address info is a pair (hostaddr, port).
         """
         fd, addr = self._accept()
-        sock = socket(self.family, self.type, self.proto, fileno=fd)
+        sock = socket(self.family, self.type, self.proto, fileno=fd)  ## when to use classname, when to use self.__class__?
+        ## socket maybe subclassed, thus if you want to dup using subclass, should use self.__class__ instead of socket
+        
         # Issue #7995: if no default timeout is set and the listening
         # socket had a (non-zero) timeout, force the new socket in blocking
         # mode to override platform-specific socket flags inheritance.
@@ -231,7 +239,7 @@ class socket(_socket.socket):
                 raise ValueError("unbuffered streams must be binary")
             return raw
         if reading and writing:
-            buffer = io.BufferedRWPair(raw, raw, buffering)
+            buffer = io.BufferedRWPair(raw, raw, buffering)  ## io package 
         elif reading:
             buffer = io.BufferedReader(raw, buffering)
         else:
@@ -243,7 +251,7 @@ class socket(_socket.socket):
         text.mode = mode
         return text
 
-    if hasattr(os, 'sendfile'):
+    if hasattr(os, 'sendfile'):  ## dynamically define methods 
 
         def _sendfile_use_sendfile(self, file, offset=0, count=None):
             self._check_sendfile_params(file, offset, count)
@@ -261,8 +269,11 @@ class socket(_socket.socket):
             blocksize = fsize if not count else count
 
             timeout = self.gettimeout()
-            if timeout == 0:
+            if timeout == 0:  ## time out are int or bool?
                 raise ValueError("non-blocking sockets are not supported")
+            ## Selector:
+            ## This module allows high-level and efficient I/O multiplexing, built upon the select module primitives.
+            
             # poll/select have the advantage of not requiring any
             # extra file descriptor, contrarily to epoll/kqueue
             # (also, they require a single syscall).
@@ -315,6 +326,9 @@ class socket(_socket.socket):
                 "os.sendfile() not available on this platform")
 
     def _sendfile_use_send(self, file, offset=0, count=None):
+        ## difference between send and sendfile:
+        ## sendfile: Copy nbytes bytes from file descriptor in to file descriptor out starting at offset.
+        ## send: Windows does not have the high-performance sendfile()
         self._check_sendfile_params(file, offset, count)
         if self.gettimeout() == 0:
             raise ValueError("non-blocking sockets are not supported")
@@ -379,6 +393,10 @@ class socket(_socket.socket):
         which case file.tell() can be used to figure out the number of
         bytes which were sent.
         The socket must be of SOCK_STREAM type.
+
+        ## SOCK_STREAM vs. SCOK_DGRAM
+        http://stackoverflow.com/questions/4688855/whats-the-difference-between-streams-and-datagrams-in-network-programming
+        
         Non-blocking sockets are not supported.
         """
         try:
@@ -403,7 +421,7 @@ class socket(_socket.socket):
             self._real_close()
 
     def detach(self):
-        """detach() -> file descriptor
+        """detach() -> file descriptor  ## doc for return type 
 
         Close the socket object without closing the underlying file descriptor.
         The object cannot be used after this call, but the file descriptor
@@ -424,13 +442,15 @@ class socket(_socket.socket):
         """
         return _intenum_converter(super().type, SocketKind)
 
-    if os.name == 'nt':
+    if os.name == 'nt':  ## Windows 
         def get_inheritable(self):
+            ## Get the “inheritable” flag of the specified handle (a boolean).
             return os.get_handle_inheritable(self.fileno())
         def set_inheritable(self, inheritable):
             os.set_handle_inheritable(self.fileno(), inheritable)
-    else:
+    else:  ## w/o handle 
         def get_inheritable(self):
+            ## Get the “inheritable” flag of the specified file descriptor (a boolean).
             return os.get_inheritable(self.fileno())
         def set_inheritable(self, inheritable):
             os.set_inheritable(self.fileno(), inheritable)
@@ -471,7 +491,7 @@ if hasattr(_socket, "socketpair"):
                 family = AF_UNIX
             except NameError:
                 family = AF_INET
-        a, b = _socket.socketpair(family, type, proto)
+        a, b = _socket.socketpair(family, type, proto)  ## wrapping underlying 
         a = socket(family, type, proto, a.detach())
         b = socket(family, type, proto, b.detach())
         return a, b
@@ -500,7 +520,7 @@ else:
             lsock.listen()
             # On IPv6, ignore flow_info and scope_id
             addr, port = lsock.getsockname()[:2]
-            csock = socket(family, type, proto)
+            csock = socket(family, type, proto)  ## connected TCP socket 
             try:
                 csock.setblocking(False)
                 try:
@@ -516,6 +536,7 @@ else:
             lsock.close()
         return (ssock, csock)
 
+## since the creation of function is dynamic, dunamically bind the __doc__
 socketpair.__doc__ = """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 Create a pair of socket objects from the sockets returned by the platform
 socketpair() function.

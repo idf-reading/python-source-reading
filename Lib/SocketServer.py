@@ -254,7 +254,7 @@ class BaseServer:
         Then it overrides this method within initiating of a new thread 
 
         """
-        threads.finish_request(request, client_address)
+        self.finish_request(request, client_address)
         self.close_request(request)
 
     def server_close(self):
