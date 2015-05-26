@@ -131,6 +131,7 @@ BaseServer:
 # standard regression test.
 # To run it manually, run Lib/test/test_socketserver.py.
 
+## Most recently, the file name is changed to lower case: SocketServer.py -> socketserver.py 
 __version__ = "0.4"
 
 

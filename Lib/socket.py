@@ -124,7 +124,7 @@ if sys.platform.lower().startswith("win"):
 class _GiveupOnSendfile(Exception): pass
 
 
-class socket(_socket.socket):  ## why the class name is in lowercase?
+class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-namespace is in lowercase
 
     """A subclass of _socket.socket adding the makefile() method."""
 
