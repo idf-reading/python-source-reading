@@ -61,7 +61,7 @@ def insort_left(a, x, lo=0, hi=None):
         mid = (lo+hi)//2
         if a[mid] < x: lo = mid+1
         else: hi = mid
-    a.insert(lo, x)
+    a.insert(lo, x)  ## insert O(n), which makes it inefficient 
 
 
 def bisect_left(a, x, lo=0, hi=None):
@@ -81,7 +81,7 @@ def bisect_left(a, x, lo=0, hi=None):
         hi = len(a)
     while lo < hi:
         mid = (lo+hi)//2
-        if a[mid] < x: lo = mid+1
+        if a[mid] < x: lo = mid+1  ## bisect_left updates left ptr first while bisect_right updates right ptr first. 
         else: hi = mid
     return lo
 
