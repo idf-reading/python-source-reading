@@ -101,7 +101,7 @@ def _intenum_converter(value, enum_klass):
 _realsocket = socket
 
 # WSA error codes
-if sys.platform.lower().startswith("win"):
+if sys.platform.lower().startswith("win"):  ## Windows 
     errorTab = {}  ## dict for better redability 
     errorTab[10004] = "The operation was interrupted."
     errorTab[10009] = "A bad file handle was passed."
@@ -124,7 +124,7 @@ if sys.platform.lower().startswith("win"):
 class _GiveupOnSendfile(Exception): pass
 
 
-class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-namespace is in lowercase
+class socket(_socket.socket):  ## why the class name is in lowercase? - pseudo-namespace is in lowercase
 
     """A subclass of _socket.socket adding the makefile() method."""
 
@@ -136,7 +136,7 @@ class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-nam
         # constructor of _socket.socket converts the given argument to an
         # integer automatically.
 
-        ## wrap around the underlying socket 
+        ## wrap around the underlying C-implemented socket 
         _socket.socket.__init__(self, family, type, proto, fileno)  ## underlying  _socket package
         self._io_refs = 0
         self._closed = False
@@ -183,6 +183,7 @@ class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-nam
     def dup(self):  ## os package also has dup()
         """dup() -> socket object
 
+        ## clone 
         Duplicate the socket. Return a new socket object connected to the same
         system resource. The new socket is non-inheritable.
         """
@@ -200,7 +201,9 @@ class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-nam
         """
         fd, addr = self._accept()
         sock = socket(self.family, self.type, self.proto, fileno=fd)  ## when to use classname, when to use self.__class__?
-        ## socket maybe subclassed, thus if you want to dup using subclass, should use self.__class__ instead of socket
+
+        ## slef.__class__ vs. classname
+        ### socket maybe subclassed, thus if you want to dup using subclass, should use self.__class__ instead of socket
         
         # Issue #7995: if no default timeout is set and the listening
         # socket had a (non-zero) timeout, force the new socket in blocking
@@ -213,11 +216,12 @@ class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-nam
                  encoding=None, errors=None, newline=None):
         """makefile(...) -> an I/O stream connected to the socket
 
+        ## attach a socket to a file. 
         The arguments are as for io.open() after the filename,
         except the only mode characters supported are 'r', 'w' and 'b'.
         The semantics are similar too.  (XXX refactor to share code?)
         """
-        if not set(mode) <= {"r", "w", "b"}:
+        if not set(mode) <= {"r", "w", "b"}:  ## set op. 
             raise ValueError("invalid mode %r (only r, w, b allowed)" % (mode,))
         writing = "w" in mode
         reading = "r" in mode or not writing
@@ -444,7 +448,7 @@ class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-nam
 
     if os.name == 'nt':  ## Windows 
         def get_inheritable(self):
-            ## Get the “inheritable” flag of the specified handle (a boolean).
+            ## Get the “inheritable” flag of the specified handle (a boolean).).
             return os.get_handle_inheritable(self.fileno())
         def set_inheritable(self, inheritable):
             os.set_handle_inheritable(self.fileno(), inheritable)
@@ -454,6 +458,8 @@ class socket(_socket.socket):  ## why the class name is in lowercase? pseudo-nam
             return os.get_inheritable(self.fileno())
         def set_inheritable(self, inheritable):
             os.set_inheritable(self.fileno(), inheritable)
+
+    ## not attached to a method 
     get_inheritable.__doc__ = "Get the inheritable flag of the socket"
     set_inheritable.__doc__ = "Set the inheritable flag of the socket"
 
@@ -484,6 +490,7 @@ if hasattr(_socket, "socketpair"):
         Create a pair of socket objects from the sockets returned by the platform
         socketpair() function.
         The arguments are the same as for socket() except the default family is
+        
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
         if family is None:
@@ -497,7 +504,6 @@ if hasattr(_socket, "socketpair"):
         return a, b
 
 else:
-
     # Origin: https://gist.github.com/4325783, by Geert Jansen.  Public domain.
     def socketpair(family=AF_INET, type=SOCK_STREAM, proto=0):
         if family == AF_INET:
@@ -505,7 +511,7 @@ else:
         elif family == AF_INET6:
             host = _LOCALHOST_V6
         else:
-            raise ValueError("Only AF_INET and AF_INET6 socket address families "
+            raise ValueError("Only AF_INET and AF_INET6 socket address families "  ## auto concatenated 
                              "are supported")
         if type != SOCK_STREAM:
             raise ValueError("Only SOCK_STREAM socket type is supported")
@@ -554,6 +560,8 @@ class SocketIO(io.RawIOBase):
     the raw I/O interface on top of a socket object.
     """
 
+    ## SocketIO in lieu of FileIO
+    
     # One might wonder why not let FileIO do the job instead.  There are two
     # main reasons why FileIO is not adapted:
     # - it wouldn't work under Windows (where you can't used read() and
@@ -583,11 +591,11 @@ class SocketIO(io.RawIOBase):
         If *b* is non-empty, a 0 return value indicates that the connection
         was shutdown at the other end.
         """
-        self._checkClosed()
+        self._checkClosed()  ## io.RawIOBase
         self._checkReadable()
         if self._timeout_occurred:
             raise OSError("cannot read from timed out object")
-        while True:
+        while True:  ## break the while by "raise"
             try:
                 return self._sock.recv_into(b)
             except timeout:
@@ -596,7 +604,7 @@ class SocketIO(io.RawIOBase):
             except error as e:
                 if e.args[0] in _blocking_errnos:
                     return None
-                raise
+                raise  ## raise can break multiple levels of loop 
 
     def write(self, b):
         """Write the given bytes or bytearray object *b* to the socket
@@ -604,12 +612,12 @@ class SocketIO(io.RawIOBase):
         len(b) if not all data could be written.  If the socket is
         non-blocking and no bytes could be written None is returned.
         """
-        self._checkClosed()
+        self._checkClosed()  ## package method 
         self._checkWritable()
         try:
             return self._sock.send(b)
         except error as e:
-            # XXX what about EINTR?
+            # XXX what about EINTR?  ##  EINTR is one of the POSIX errors from different blocking functions 
             if e.args[0] in _blocking_errnos:
                 return None
             raise
@@ -659,7 +667,7 @@ class SocketIO(io.RawIOBase):
         if self.closed:
             return
         io.RawIOBase.close(self)
-        self._sock._decref_socketios()
+        self._sock._decref_socketios()  ## doesn't close the underlying socket 
         self._sock = None
 
 
@@ -676,7 +684,7 @@ def getfqdn(name=''):
     if not name or name == '0.0.0.0':
         name = gethostname()
     try:
-        hostname, aliases, ipaddrs = gethostbyaddr(name)
+        hostname, aliases, ipaddrs = gethostbyaddr(name)  ## where is `gethostbyaddr(name)`, maybe from _socket 
     except error:
         pass
     else:
@@ -705,7 +713,7 @@ def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,
     An host of '' or port 0 tells the OS to use the default.
     """
 
-    host, port = address
+    host, port = address  ## (host, port)
     err = None
     for res in getaddrinfo(host, port, 0, SOCK_STREAM):
         af, socktype, proto, canonname, sa = res
@@ -720,7 +728,7 @@ def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,
             return sock
 
         except error as _:
-            err = _
+            err = _  ## outerscope 
             if sock is not None:
                 sock.close()
 
@@ -729,7 +737,7 @@ def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,
     else:
         raise error("getaddrinfo returns an empty list")
 
-def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):  ## wrapper 
     """Resolve host and port into list of address info entries.
 
     Translate the host/port argument into a sequence of 5-tuples that contain
@@ -746,9 +754,11 @@ def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     # We override this function since we want to translate the numeric family
     # and socket type values to enum constants.
     addrlist = []
-    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):  ## underlying C API
         af, socktype, proto, canonname, sa = res
         addrlist.append((_intenum_converter(af, AddressFamily),
                          _intenum_converter(socktype, SocketKind),
                          proto, canonname, sa))
+        ## canonname, the canonical name CNAME, DNS for domain name 
+        ## sa, source address (host, port)
     return addrlist
